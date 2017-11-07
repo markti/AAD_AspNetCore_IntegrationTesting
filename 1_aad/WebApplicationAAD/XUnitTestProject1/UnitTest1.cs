@@ -7,6 +7,9 @@ using System.Threading.Tasks;
 using Xunit;
 using System.Net.Http;
 using System.Globalization;
+using Newtonsoft.Json.Linq;
+using Microsoft.IdentityModel.Clients.ActiveDirectory;
+using System.Collections.Specialized;
 
 namespace XUnitTestProject1
 {
@@ -16,7 +19,7 @@ namespace XUnitTestProject1
 
         public UnitTest1()
         {
-            //_sut = new TestContext();
+            _sut = new TestContext();
         }
 
         [Fact]
@@ -40,7 +43,32 @@ namespace XUnitTestProject1
         }
 
         [Fact]
-        public async Task GetBearerToken()
+        public async Task GetToken()
+        {
+            using (HttpClient client = new HttpClient())
+            {
+                string tenantId = "3bd0245c-cac9-4dc2-bb49-15371698af05";
+                var tokenEndpoint = @"https://login.windows.net/" + tenantId + "/oauth2/token";
+                var accept = "application/json";
+                string clientId = "d476fd33-4cfc-4aeb-9d4d-ea4978af5660";
+
+                client.DefaultRequestHeaders.Add("Accept", accept);
+                string postBody = @"resource=https://vitalsigyn.com/WebApplicationAAD/&client_id=" + clientId + "&grant_type=password&username=integration_test@vitalsigyn.com&password=V1t4alS1gyn&scope=openid";
+
+                using (var response = await client.PostAsync(tokenEndpoint, new StringContent(postBody, Encoding.UTF8, "application/x-www-form-urlencoded")))
+                {
+                    if (response.IsSuccessStatusCode)
+                    {
+                        var responseAsString = await response.Content.ReadAsStringAsync();
+                        var jsonresult = JObject.Parse(responseAsString);
+                        var token = (string)jsonresult["access_token"];
+                    }
+                }
+            }
+        }
+
+        [Fact]
+        public async Task GetBearerTokenWithPassword()
         {
 
             string hardcodedUsername = "integration_test@vitalsigyn.com";
@@ -76,7 +104,7 @@ namespace XUnitTestProject1
         }
 
         [Fact]
-        public async Task GetToken2()
+        public async Task GetTokenWithClientCredentials()
         {
             string tenantId = "3bd0245c-cac9-4dc2-bb49-15371698af05";
             string resourceId = "https://vitalsigyn.com/WebApplicationAAD";
@@ -106,6 +134,33 @@ namespace XUnitTestProject1
                     }
                     var jsonresult = await response.Content.ReadAsStringAsync();
                 }
+            }
+        }
+
+        [Fact]
+        public async Task TestMethod3()
+        {
+            //  Constants
+            var tenant = "vitalsigyn.onmicrosoft.com";
+            var serviceUri = "https://vitalsigyn.com/WebApplicationAAD";
+            var clientID = "a1d51587-bf4c-4915-b588-8df1d9fd7ac9";
+            var userName = "integration_test@vitalsigyn.com";
+            var password = "V1t4alS1gyn";
+
+            using (var webClient = new WebClient())
+            {
+                var requestParameters = new NameValueCollection();
+
+                requestParameters.Add("resource", serviceUri);
+                requestParameters.Add("client_id", clientID);
+                requestParameters.Add("grant_type", "password");
+                requestParameters.Add("username", userName);
+                requestParameters.Add("password", password);
+                requestParameters.Add("scope", "openid");
+
+                var url = $"https://login.microsoftonline.com/" + tenant + "/oauth2/token";
+                var responsebytes = await webClient.UploadValuesTaskAsync(url, "POST", requestParameters);
+                var responsebody = Encoding.UTF8.GetString(responsebytes);
             }
         }
     }
