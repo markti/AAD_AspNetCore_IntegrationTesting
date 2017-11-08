@@ -11,6 +11,7 @@ namespace WebSwaggerCoreAAD.Controllers
     [Route("api/[controller]")]
     public class ValuesController : Controller
     {
+        [Authorize]
         // GET api/values
         [HttpGet]
         public IEnumerable<string> Get()
@@ -18,6 +19,7 @@ namespace WebSwaggerCoreAAD.Controllers
             return new string[] { "value1", "value2" };
         }
 
+        [Authorize]
         // GET api/values/5
         [HttpGet("{id}")]
         public string Get(int id)
