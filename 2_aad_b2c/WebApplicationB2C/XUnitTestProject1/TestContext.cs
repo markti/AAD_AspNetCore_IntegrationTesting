@@ -1,15 +1,17 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Net;
-using System.Text;
-using FluentAssertions;
-using System.Threading.Tasks;
-using Xunit;
-using System.Net.Http;
-using System.Globalization;
+﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
-using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
+using Newtonsoft.Json.Linq;
+using System;
+using System.Collections.Generic;
+using System.Collections.Specialized;
+using System.Globalization;
+using System.IO;
+using System.Net;
+using System.Net.Http;
+using System.Text;
+using System.Threading.Tasks;
 using WebApplicationB2C;
 
 namespace XUnitTestProject1
@@ -37,40 +39,56 @@ namespace XUnitTestProject1
 
         private void SetupClient()
         {
-            _server = new TestServer(new WebHostBuilder().UseStartup<Startup>());
+            var fullPath = Path.GetFullPath("@../../../../../../WebApplicationAAD/");
 
-            string token = "foo";
-            var authContext = new AuthenticationContext(authority, false);
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(fullPath)
+                .AddJsonFile("appsettings.json", optional: false)
+                .AddUserSecrets<Startup>()
+                .Build();
+
+            _server = new TestServer(
+                new WebHostBuilder()
+                .UseStartup<Startup>()
+                .UseConfiguration(configuration)
+                );
+
+            string token = GetAccessToken();
 
 
             Client = _server.CreateClient();
             Client.DefaultRequestHeaders.Add("Authorization", "Bearer " + token);
         }
+        public static string GetAccessToken()
+        {
+            string token = null;
+            //  Constants
+            var tenant = "vitalsigyn.onmicrosoft.com";
+            var serviceUri = "https://vitalsigyn.com/WebApplicationAAD";
+            var clientID = "a1d51587-bf4c-4915-b588-8df1d9fd7ac9";
+            var userName = "integration_test@vitalsigyn.com";
+            var password = "V1t4alS1gyn";
+            var appClientId = "d476fd33-4cfc-4aeb-9d4d-ea4978af5660";
 
-        //public static async Task<AuthenticationResult> getAccessToken()
-        //{
-        //    string hardcodedUsername = "integration_test@vitalsigyn.com";
-        //    string hardcodedPassword = "";
+            using (var webClient = new WebClient())
+            {
+                var requestParameters = new NameValueCollection();
 
-        //    string tenant = "vitalsigyn.com";
-        //    string clientId = "d476fd33-4cfc-4aeb-9d4d-ea4978af5660";
-        //    string resourceHostUri = "https://management.azure.com/";
-        //    string aadInstance = "https://login.microsoftonline.com/{0}";
+                requestParameters.Add("grant_type", "password");
+                requestParameters.Add("client_id", clientID);
+                requestParameters.Add("username", userName);
+                requestParameters.Add("password", password);
+                requestParameters.Add("resource", appClientId);
+                //requestParameters.Add("scope", "openid");
 
-        //    string authority = String.Format(CultureInfo.InvariantCulture, aadInstance, tenant);
+                var url = $"https://login.microsoftonline.com/" + tenant + "/oauth2/token";
+                var responsebytes = webClient.UploadValues(url, "POST", requestParameters);
+                var responsebody = Encoding.UTF8.GetString(responsebytes);
+                var jsonresult = JObject.Parse(responsebody);
+                token = (string)jsonresult["access_token"];
+            }
 
-        //    var postData = new List<KeyValuePair<string, string>>();
-        //    postData.Add(new KeyValuePair<string, string>("grant_type", "password"));
-        //    postData.Add(new KeyValuePair<string, string>("resource", "resource"));
-        //    postData.Add(new KeyValuePair<string, string>("username", hardcodedUsername));
-        //    postData.Add(new KeyValuePair<string, string>("password", hardcodedPassword));
-        //    postData.Add(new KeyValuePair<string, string>("client_id", clientId));
-        //    HttpContent content = new FormUrlEncodedContent(postData);
-
-        //    HttpClient aadPost = new HttpClient();
-
-        //    aadPost.PostAsync("https://login.microsoftonline.com/{tenant-id}/oauth2/token", content);
-
-        //}
+            return token;
+        }
     }
 }

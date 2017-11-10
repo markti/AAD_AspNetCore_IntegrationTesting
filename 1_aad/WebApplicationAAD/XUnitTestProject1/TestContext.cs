@@ -1,11 +1,13 @@
 ﻿using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.TestHost;
+using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Clients.ActiveDirectory;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
 using System.Collections.Specialized;
 using System.Globalization;
+using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Text;
@@ -28,7 +30,8 @@ namespace XUnitTestProject1
         private static string authority;
 
         public HttpClient Client { get; set; }
-        private TestServer _server;
+        public TestServer Server { get; set; }
+        public string AccessToken { get; set; }
 
         public TestContext()
         {
@@ -37,16 +40,27 @@ namespace XUnitTestProject1
 
         private void SetupClient()
         {
-            _server = new TestServer(new WebHostBuilder().UseStartup<Startup>());
+            var fullPath = Path.GetFullPath("@../../../../../../WebApplicationAAD/");
+
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(fullPath)
+                .AddJsonFile("appsettings.json", optional: false)
+                .AddUserSecrets<Startup>()
+                .Build();
+
+            Server = new TestServer(
+                new WebHostBuilder()
+                .UseStartup<Startup>()
+                .UseConfiguration(configuration)
+                );
 
             authority = String.Format(CultureInfo.InvariantCulture, aadInstance, tenant);
 
-            string token = GetAccessToken();
+            AccessToken = GetAccessToken();
             var authContext = new AuthenticationContext(authority, false);
-
-
-            Client = _server.CreateClient();
-            Client.DefaultRequestHeaders.Add("Authorization", "Bearer " + token);
+            
+            Client = Server.CreateClient();
+            Client.DefaultRequestHeaders.Add("Authorization", "Bearer " + AccessToken);
         }
 
         public static string GetAccessToken()
@@ -58,17 +72,18 @@ namespace XUnitTestProject1
             var clientID = "a1d51587-bf4c-4915-b588-8df1d9fd7ac9";
             var userName = "integration_test@vitalsigyn.com";
             var password = "V1t4alS1gyn";
+            var appClientId = "d476fd33-4cfc-4aeb-9d4d-ea4978af5660";
 
             using (var webClient = new WebClient())
             {
                 var requestParameters = new NameValueCollection();
 
-                requestParameters.Add("resource", serviceUri);
-                requestParameters.Add("client_id", clientID);
                 requestParameters.Add("grant_type", "password");
+                requestParameters.Add("client_id", clientID);
                 requestParameters.Add("username", userName);
                 requestParameters.Add("password", password);
-                requestParameters.Add("scope", "openid");
+                requestParameters.Add("resource", appClientId);
+                //requestParameters.Add("scope", "openid");
 
                 var url = $"https://login.microsoftonline.com/" + tenant + "/oauth2/token";
                 var responsebytes = webClient.UploadValues(url, "POST", requestParameters);

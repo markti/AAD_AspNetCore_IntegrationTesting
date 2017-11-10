@@ -25,7 +25,10 @@ namespace XUnitTestProject1
         [Fact]
         public async Task Fails401NoBearerToken()
         {
-            var response = await _sut.Client.GetAsync("/api/Values");
+            //var response = await _sut.Client.GetAsync("/api/Values");
+
+            var req = _sut.Server.CreateRequest("/api/Values").AddHeader("Authorization", "Bearer " + _sut.AccessToken);
+            var response = await req.GetAsync();
 
             response.EnsureSuccessStatusCode();
 
@@ -40,6 +43,10 @@ namespace XUnitTestProject1
             response.EnsureSuccessStatusCode();
 
             response.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            var result = await response.Content.ReadAsStringAsync();
+
+            Assert.False(string.IsNullOrEmpty(result));
         }
 
         [Fact]
